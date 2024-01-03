@@ -50,7 +50,7 @@ class HTMLSwift:
         )
         return self.access_url
 
-    def send_html(self, name, content: str):
+    def send_html(self, name, contentfile: str):
         conn = swiftclient.Connection(
             user=self.os_username,
             key=self.os_password,
@@ -86,7 +86,7 @@ class HTMLSwift:
                     log.info("Create bucket " + self.os_bucket + " successfully!")
 
         # upload file to Swift storage
-        with io.StringIO(content) as f:
+        with open(contentfile, "r") as f:
             if self.os_retention:
                 try:
                     conn.put_object(
@@ -122,9 +122,7 @@ class HTMLSwift:
                 self.send_html(name, html._generate_report(session))
                 session.config._report_url = self.get_access_url(name)
             except Exception as e:
-                log.error(
-                    f"Swift send_html error: {self.os_endpoint} - {e}"
-                )
+                log.error(f"Swift send_html error: {self.os_endpoint} - {e}")
 
     def pytest_terminal_summary(
         self,

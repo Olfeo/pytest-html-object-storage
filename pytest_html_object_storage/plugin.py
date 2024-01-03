@@ -1,4 +1,5 @@
 import os
+import pytest
 
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
@@ -20,8 +21,15 @@ def pytest_addoption(parser: Parser):
     )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: Config):
     if config.getoption("--store-minio") and not hasattr(config, "workerinput"):
+        if not (
+            config.getoption("--html") and config.getoption("--self-contained-html")
+        ):
+            raise Exception(
+                """ You must configure pytest-hmtl to generate a self-contained report "--html=<path_to_the_report>" and "--self-contained-html" """
+            )
         if (
             not os.environ.get("OBJECT_STORAGE_ENDPOINT")
             or not os.environ.get("OBJECT_STORAGE_BUCKET")
@@ -32,9 +40,15 @@ def pytest_configure(config: Config):
                 "You must set the environment variables for html_minio plugin"
             )
         config._html_minio = HTMLMinio(config)
-        config.pluginmanager.register(config._html_minio)
+        config.pluginmanager.register(config._html_minio, "pytest-html-object-storage")
 
     if config.getoption("--store-swift") and not hasattr(config, "workerinput"):
+        if not (
+            config.getoption("--html") and config.getoption("--self-contained-html")
+        ):
+            raise Exception(
+                """ You must configure pytest-hmtl to generate a self-contained report "--html" and "--self-contained-html"""
+            )
         if (
             not os.environ.get("OBJECT_STORAGE_ENDPOINT")
             or not os.environ.get("OBJECT_STORAGE_BUCKET")

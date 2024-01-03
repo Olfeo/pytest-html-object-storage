@@ -5,6 +5,7 @@ import os
 import uuid
 from typing import Union
 
+import pytest
 from _pytest.config import Config, ExitCode
 from _pytest.main import Session
 from _pytest.terminal import TerminalReporter
@@ -58,7 +59,7 @@ class HTMLMinio:
         else:
             return ""
 
-    def send_html(self, name, content: str):
+    def send_html(self, name, contentfile: str):
         client = Minio(
             self.os_endpoint,
             self.os_username,
@@ -115,31 +116,27 @@ class HTMLMinio:
                     ],
                 )
                 client.set_bucket_lifecycle(self.os_bucket, config)
-        content_bytes = content.encode("utf-8")
-        content = io.BytesIO(content_bytes)
-        client.put_object(
+        client.fput_object(
             self.os_bucket,
             name,
-            content,
-            len(content_bytes),
+            contentfile,
             content_type="text/html",
         )
 
-    def pytest_sessionfinish(self, session: Session, exitstatus: Union[int, ExitCode]):
-        html = getattr(session.config, "_html", None)
-        if html:
-            html._post_process_reports()
+    @pytest.hookimpl(trylast=True, hookwrapper=True)
+    def pytest_sessionfinish(self, session, exitstatus):
+        outcome = yield
+        htmlfile = getattr(session.config.option, "htmlpath", None)
+        if htmlfile:
             name = f"{str(uuid.uuid4())}/report.html"
             try:
                 self.send_html(
                     name,
-                    html._generate_report(session),
+                    htmlfile,
                 )
                 session.config._report_url = self.get_access_url(name)
             except Exception as e:
-                log.error(
-                    f"Minio send_html error: {self.os_endpoint} - {e}"
-                )
+                log.error(f"Minio send_html error: {self.os_endpoint} - {e}")
 
     def pytest_terminal_summary(
         self,
